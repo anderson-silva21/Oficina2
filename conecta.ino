@@ -1,6 +1,8 @@
 #include <ESP8266HTTPClient.h>
 #include <ESP8266WebServer.h>
 
+#include <ArduinoJson.h>
+
 //#include <HTTPClientESP32.h>
 
 
@@ -21,6 +23,7 @@ const char *STATUS_AT_VER_JOINED = "1";
 const char *STATUS_AT_VER_NOTJOINED = "0";
 const char *STATUS_AT_ERROR = "AT_ERROR";
 char a = 'g';
+String ledStatus = "";
 
 SoftwareSerial serialAT;
 
@@ -31,7 +34,7 @@ SoftwareSerial serialAT;
   #include <ESP8266WiFi.h>
   #define WIFI_NAME "Baidu_Avast"
   #define WIFI_PASS "lasanhademorango10"
-  
+  ESP8266WebServer server(80);
   
 
   
@@ -257,11 +260,83 @@ void setup() {
   #endif
 
   valor = 0;
+  ///////////////////////////////////////////////////////
+  server.on("/changeStatusLinha", HTTP_POST, [](){
+  if(server.hasArg("plain")){
+    String body = server.arg("plain");
+
+    // Verifica se o corpo é um JSON válido
+    DynamicJsonDocument json(1024);
+    DeserializationError error = deserializeJson(json, body);
+    if(error){
+      server.send(400, "text/plain", "Invalid JSON");
+      return;
+    }
+
+    // Verifica se a chave "message" existe e tem o valor "ativo"
+    if(json.containsKey("message") && json["message"] == "ativo"){
+      a='g';
+      digitalWrite(g_pin, HIGH);
+      digitalWrite(y_pin, LOW);
+      digitalWrite(r_pin, LOW);
+
+      server.send(200, "text/plain", "Status da linha alterado para 'ativo' ");
+    }else if(json.containsKey("message") && json["message"] == "inativo"){
+      a='y';
+      digitalWrite(g_pin, LOW);
+      digitalWrite(y_pin, HIGH);
+      digitalWrite(r_pin, LOW);
+      server.send(200, "text/plain", "Status da linha alterado para 'inativo' ");
+    }else if(json.containsKey("message") && json["message"] == "parado"){
+      a='r';
+      digitalWrite(g_pin, LOW);
+      digitalWrite(y_pin, LOW);
+      digitalWrite(r_pin, HIGH);
+      server.send(200, "text/plain", "Status da linha alterado para 'parado' ");
+    }
+    else{
+      server.send(400, "text/plain", "Invalid message value");
+    }
+  }
+  else{
+    server.send(400, "text/plain", "Bad Request");
+  }
+});
+
+  server.begin();
+  ///////////////////////////////////////////////////////
 }
 
 
 
-ESP8266WebServer server(80);
+//ESP8266WebServer server(80);
+///////////////////////////////////////////////////////
+/*
+void handleCommand() {
+  if (server.method() == HTTP_POST && server.hasArg("plain")) {
+    ledStatus = server.arg("plain");
+
+    if (ledStatus == "ativo") {
+      digitalWrite(g_pin, HIGH);
+      digitalWrite(y_pin, LOW);
+      digitalWrite(r_pin, LOW);
+    } else if (ledStatus == "inativo") {
+      digitalWrite(g_pin, LOW);
+      digitalWrite(y_pin, HIGH);
+      digitalWrite(r_pin, LOW);
+    } else if (ledStatus == "parado") {
+      digitalWrite(g_pin, LOW);
+      digitalWrite(y_pin, LOW);
+      digitalWrite(r_pin, HIGH);
+    }
+
+    server.send(200, "text/plain", "OK");
+  } else {
+    server.send(400, "text/plain", "Bad Request");
+  }
+}
+*/
+///////////////////////////////////////////////////////
 
 
 int httpCode = 0;
@@ -270,8 +345,6 @@ void loop() {
   if(digitalRead(botao) == HIGH && estadoBotao == 'g'){
     if(a == 'g'){
       a = 'y';
-    }else{//apenas para teste
-      a = 'g';
     }  
     estadoBotao = 'y';
   }else if(digitalRead(botao) == LOW && estadoBotao == 'y'){
@@ -357,6 +430,8 @@ void loop() {
     valor++;
     //estado = 0;
   }
-  
+  ///////////////////////////////////////////////////////
+  server.handleClient();
+  ///////////////////////////////////////////////////////
 }
   
