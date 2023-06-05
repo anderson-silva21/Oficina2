@@ -1,0 +1,11 @@
+server do gustavo ao receber verde controla no microcontrolador para enviar o sinal de verde
+
+da forma que esta, o hardware conecta no servidor para receber atualização
+a regra que foi definida o hw vai receber conexao do servidor quando alguma mudança de estado for feita
+(mudança feita por gerente por navegador ou app)
+
+para isso o servidor precisa saber o meu endereço ip para enviar as paradas
+
+quando eu me associar ao servidor do gustavo eu passo o ip do esp e a porta que estarei escutando para que o servidor possa conectar no microcontrolador
+
+rest full server que possa receber conexao remota 
