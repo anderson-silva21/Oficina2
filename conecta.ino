@@ -1,5 +1,12 @@
-#include <SoftwareSerial.h>
+#include <ESP8266HTTPClient.h>
+#include <ESP8266WebServer.h>
 
+//#include <HTTPClientESP32.h>
+
+
+#include <SoftwareSerial.h>
+#include "ESP8266TimerInterrupt.h"
+#include "ESP8266_ISR_Timer.h"
 
 const char *CMD_AT = "AT\r\n";
 const char *CMD_AT_JOIN = "AT+JOIN\r\n";
@@ -13,8 +20,23 @@ const char *STATUS_AT_JOINED = "JOINED";
 const char *STATUS_AT_VER_JOINED = "1";
 const char *STATUS_AT_VER_NOTJOINED = "0";
 const char *STATUS_AT_ERROR = "AT_ERROR";
+char a = 'g';
 
 SoftwareSerial serialAT;
+
+#define WIFI
+//#define LORA
+
+#ifdef WIFI
+  #include <ESP8266WiFi.h>
+  #define WIFI_NAME "Baidu_Avast"
+  #define WIFI_PASS "lasanhademorango10"
+  
+  
+
+  
+#endif
+//iot.coenc.ap.utfpr.edu.br
 
 const byte tx=12; //D6 impresso na placa
 const byte rx=13; //D7 impresso na placa
@@ -23,26 +45,6 @@ const int porta_enviar=2; //INDICAR AQUI QUAL FPORT DA MSG LORA A SER USADA...
 int valor=0;
 char comando_send_com_valor[61]=""; //máximo 51 bytes dados LoraWAN e a string deverá conter o comando (AT+SEND=) já tem 8 bytes...
 
-///////////////////TIMER//////////////////////////////////////
-//https://www.dobitaobyte.com.br/timer-com-esp8266-na-ide-do-arduino/
-//https://www.dobitaobyte.com.br/isr-interrupcoes-e-timer-com-esp32/
-extern "C"{
-#include "user_interface.h"
-}
-os_timer_t mTimer;
-
-bool       _timeout = false;
-
-//Nunca execute nada na interrupcao, apenas setar flags!
-void tCallback(void *tCall){
-    _timeout = true;
-}
-
-void usrInit(void){
-    os_timer_setfn(&mTimer, tCallback, NULL);
-    os_timer_arm(&mTimer, 1000, true);
-}
-//////////////////////////////////////////////////////////////
 int enviarcomandoAT(const char *cmd, int cmd_len){  
 
       char respostaraw[100]=""; //resposta do modem
@@ -139,44 +141,222 @@ int enviarcomandoAT(const char *cmd, int cmd_len){
       return 0;
 }
 
-void setup() {
-  //Serial.begin(9600);  //apensar para debug...  
-  Serial.begin(115200);
-  serialAT.begin(9600, SWSERIAL_8N1, rx, tx, false, 256); //adaptado de exemplos do diretorio do pacote SoftwareSerial na pasta esp8266 (arduino-esp8266)
- 
-  delay(1000);  
-  Serial.print("Esperando Join: ");
-  while(enviarcomandoAT(CMD_AT_VERJOIN,strlen(CMD_AT_VERJOIN))==-1){   
-    delay(1000);
-    Serial.print(".");
+/* TIMER INTERRUPT */
+
+#define USING_TIM_DIV1                false           // for shortest and most accurate timer
+#define USING_TIM_DIV16               false           // for medium time and medium accurate timer
+#define USING_TIM_DIV256              true            // for longest timer but least accurate. Default
+
+// Init ESP8266 only and only Timer 1
+ESP8266Timer ITimer;
+
+#define TIMER_SEND_SIG 3
+
+unsigned long sec = 0;
+volatile int estado = 0;
+void IRAM_ATTR TimerHandler()
+{
+  sec++;
+  if(sec == TIMER_SEND_SIG){
+   estado = 1;
+   sec = 0;
   }
-  Serial.println(" Feito Join!!!");  
+}
+
+#define TIMER_INTERVAL_MS        1000
+#define TIMER_FREQ_HZ        (float) (1000.0f / TIMER_INTERVAL_MS)
+
+unsigned long lastMillis;
+
+#define verde 11
+#define amarelo 22
+#define vermelho 33
+#define g_pin 12
+#define y_pin 14
+#define r_pin 13
+#define botao 5
+
+
+void setup() {
+
+  Serial.begin(9600);  //apensar para debug...  
+  
+  pinMode(g_pin,OUTPUT);
+  pinMode(y_pin,OUTPUT);
+  pinMode(r_pin,OUTPUT);
+  pinMode(botao,INPUT);
+
+  if (ITimer.attachInterruptInterval(TIMER_INTERVAL_MS * 1000, TimerHandler)) {
+    lastMillis = millis();
+    Serial.print(F("Starting  ITimer OK, millis() = ")); Serial.println(lastMillis);
+  } else {
+    Serial.println(F("Can't set ITimer correctly. Select another freq. or interval"));
+  }
+
+  // Frequency in float Hz
+  if (ITimer.attachInterrupt(TIMER_FREQ_HZ, TimerHandler)) {
+    Serial.println("Starting  ITimer OK, millis() = " + String(millis()));
+  } else {
+    Serial.println("Can't set ITimer. Select another freq. or timer");
+  }
+
+  #ifdef LORA
+    serialAT.begin(9600, SWSERIAL_8N1, rx, tx, false, 256); //adaptado de exemplos do diretorio do pacote SoftwareSerial na pasta esp8266 (arduino-esp8266)
+  
+    delay(1000);  
+    Serial.print("Esperando Join: ");
+    while(enviarcomandoAT(CMD_AT_VERJOIN,strlen(CMD_AT_VERJOIN))==-1){   
+      delay(1000);
+      Serial.print(".");
+    }
+    Serial.println(" Feito Join!!!");  
+  #endif
+
+  #ifdef WIFI
+    WiFi.begin(WIFI_NAME, WIFI_PASS);
+
+    Serial.print("Connecting");
+    while (WiFi.status() != WL_CONNECTED)
+    {
+      delay(500);
+      Serial.print(".");
+    }
+    Serial.println();
+
+    Serial.print("Connected, IP address: ");
+    Serial.println(WiFi.localIP());
+
+    if(WiFi.status() == WL_CONNECTED) {
+    WiFiClient client;
+    HTTPClient http;
+
+    Serial.print("[HTTP] begin...\n");
+    // configure the server and endpoint URL
+    http.begin(client, "https://web-production-cc72.up.railway.app/maquinas"); 
+
+    Serial.print("[HTTP] POST...\n");
+    // envie a requisição HTTP POST com os dados necessários
+    http.addHeader("Content-Type", "application/json");
+    int httpCode = http.POST(String("{\"led_status\":\"") + a + "\"}");  
+
+    // verifique a resposta do servidor
+    if (httpCode > 0) {
+      Serial.printf("[HTTP] POST... code: %d\n", httpCode);
+
+      if (httpCode == HTTP_CODE_OK) {
+        String response = http.getString();
+        Serial.println("Server response: " + response);
+        // faça o processamento necessário com a resposta do servidor
+      }
+    } else {
+      Serial.printf("[HTTP] POST... failed, error: %s\n", http.errorToString(httpCode).c_str());
+    }
+
+    http.end();
+  }
+  #endif
+
   valor = 0;
-  usrInit();//////////////
 }
 
 
 
-void loop() {        
+ESP8266WebServer server(80);
+
+
+int httpCode = 0;
+char estadoBotao = 'g';
+void loop() {  
+  if(digitalRead(botao) == HIGH && estadoBotao == 'g'){
+    if(a == 'g'){
+      a = 'y';
+    }else{//apenas para teste
+      a = 'g';
+    }  
+    estadoBotao = 'y';
+  }else if(digitalRead(botao) == LOW && estadoBotao == 'y'){
+    estadoBotao = 'g';
+  }      
+  if(estado == 1){
+    Serial.printf("Connection status: %d\n", WiFi.status());
+    estado = 0;
+    String tmpvalor = CMD_AT_SEND + String(porta_enviar) + ":" + String(valor) + "\r\n"; //comando montado de SEND conforme datasheet  
+    //valor contém o dado a ser enviado ao network server. Atenção aqui para ser um tamanho pequeno, pois não pode ultrapassar 51 bytes de payload.
+    //Sempre usar o mínimo possível codificado para enviar ao servidor!!!!
+    tmpvalor.toCharArray(comando_send_com_valor,sizeof(comando_send_com_valor));
+  
+    Serial.print("Valor Medido: ");
+    Serial.println(valor);
+
+
+  
  
-  String tmpvalor = CMD_AT_SEND + String(porta_enviar) + ":" + String(valor) + "\r\n"; //comando montado de SEND conforme datasheet  
-  //valor contém o dado a ser enviado ao network server. Atenção aqui para ser um tamanho pequeno, pois não pode ultrapassar 51 bytes de payload.
-  //Sempre usar o mínimo possível codificado para enviar ao servidor!!!!
-  tmpvalor.toCharArray(comando_send_com_valor,sizeof(comando_send_com_valor));
- 
-  Serial.print("Valor Medido: ");
-  Serial.println(valor);
-  //enviarcomandoAT(comando_send_com_valor,strlen(comando_send_com_valor)); //enviar valor via Uplink...  
-  //enviarcomandoAT(CMD_AT_RECV,strlen(CMD_AT_RECV)); //existe algum Downlink a ser processado?
- 
-  valor++;
-  if (_timeout){
-      Serial.println("cuco!");
-      _timeout = false;
+  if(a == 'g'){
+        digitalWrite(g_pin, HIGH);
+        digitalWrite(y_pin, LOW);
+        digitalWrite(r_pin, LOW);
+  }else if(a == 'y'){
+        digitalWrite(g_pin, LOW);
+        digitalWrite(y_pin, HIGH);
+        digitalWrite(r_pin, LOW);
+  }else if(a == 'r'){
+        digitalWrite(g_pin, LOW);
+        digitalWrite(y_pin, LOW);
+        digitalWrite(r_pin, HIGH);
   }
-  yield(); //um putosegundo soh pra respirar
-  //delay(20000); //aguardar 20s (tempo mínimo entre transmissoes AU915 - se puder ser um intervalo maior deve-se adotar...) para a próxima transmissão
-  //Ao invés de delay() o ideal é lidar com interrupção de tempo, watchdogs e recurso de millis(), pois o delay() interrompe o microcontrolador de fazer outra coisa (ex: realizar coleta de valores dos sensores...)
-  //possibilidades de usar yield()?
+
+
+    #ifdef LORA
+      enviarcomandoAT(comando_send_com_valor,strlen(comando_send_com_valor)); //enviar valor via Uplink...  
+      enviarcomandoAT(CMD_AT_RECV,strlen(CMD_AT_RECV)); //existe algum Downlink a ser processado?
+    #endif
+    
+    #ifdef WIFI
+      if ((WiFi.status() == WL_CONNECTED)) {
+      //Serial.print("to no ifdef wifi");
+      WiFiClient client;
+      HTTPClient http;
+  
+      Serial.print("[HTTP] begin...\n");
+      // configure traged server and url
+      //http.begin(client, "https://projeto-toyota.vercel.app/dashboardmaquinas");  // HTTP
+      http.begin(client, "http://192.168.0.108:3002/changeStatusMaquina");
+      http.addHeader("Content-Type", "application/json");
+      Serial.print(a);
+      Serial.print("[HTTP] POST...\n");
+      // start connection and send HTTP header and body
+      if(a == 'g')
+          httpCode = http.POST("{\"codigo\": \"123\", \"status\": \"operando\"}");
+      else if(a == 'y')
+          httpCode = http.POST("{\"codigo\": \"123\",\"status\": \"inativo\"}");
+      else if(a == 'r')
+          httpCode = http.POST("{\"codigo\": \"123\",\"status\": \"parado\"}");
+       
+      //retornar o que enviou///////////
+      //enviar apenas json
+      // httpCode will be negative on error
+      if (httpCode > 0) {
+        // HTTP header has been send and Server response header has been handled
+        Serial.printf("[HTTP] POST... code: %d\n", httpCode);
+  
+        // file found at server
+        if (httpCode == HTTP_CODE_OK) {
+          const String& payload = http.getString();
+          Serial.println("received payload:\n<<");
+          Serial.println(payload);
+          Serial.println(">>");
+        }
+      } else {
+        Serial.printf("[HTTP] POST... failed, error: %s\n", http.errorToString(httpCode).c_str());
+      }
+  
+      http.end();
+    }
+    #endif
+
+    valor++;
+    //estado = 0;
+  }
   
 }
+  
