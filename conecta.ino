@@ -32,8 +32,8 @@ SoftwareSerial serialAT;
 
 #ifdef WIFI
   #include <ESP8266WiFi.h>
-  #define WIFI_NAME "UTFPR-IOT"
-  #define WIFI_PASS "c*98MzkFy"
+  #define WIFI_NAME ""
+  #define WIFI_PASS ""
   ESP8266WebServer server(80);
   
 
