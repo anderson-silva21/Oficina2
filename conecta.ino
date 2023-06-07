@@ -32,8 +32,8 @@ SoftwareSerial serialAT;
 
 #ifdef WIFI
   #include <ESP8266WiFi.h>
-  #define WIFI_NAME "Baidu_Avast"
-  #define WIFI_PASS "lasanhademorango10"
+  #define WIFI_NAME "UTFPR-IOT"
+  #define WIFI_PASS "c*98MzkFy"
   ESP8266WebServer server(80);
   
 
@@ -393,17 +393,17 @@ void loop() {
       Serial.print("[HTTP] begin...\n");
       // configure traged server and url
       //http.begin(client, "https://projeto-toyota.vercel.app/dashboardmaquinas");  // HTTP
-      http.begin(client, "http://192.168.0.108:3002/changeStatusMaquina");
+      http.begin(client, "http://10.10.4.14:3002/changeStatusMaquina");
       http.addHeader("Content-Type", "application/json");
       Serial.print(a);
       Serial.print("[HTTP] POST...\n");
       // start connection and send HTTP header and body
       if(a == 'g')
-          httpCode = http.POST("{\"codigo\": \"123\", \"status\": \"operando\"}");
+          httpCode = http.POST("{\"codigo\": \"1\", \"status\": \"1\"}");
       else if(a == 'y')
-          httpCode = http.POST("{\"codigo\": \"123\",\"status\": \"inativo\"}");
+          httpCode = http.POST("{\"codigo\": \"1\",\"status\": \"2\"}");
       else if(a == 'r')
-          httpCode = http.POST("{\"codigo\": \"123\",\"status\": \"parado\"}");
+          httpCode = http.POST("{\"codigo\": \"1\",\"status\": \"3\"}");
        
       //retornar o que enviou///////////
       //enviar apenas json
