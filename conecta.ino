@@ -1,3 +1,5 @@
+#include <ArduinoJson.h>
+
 #include <ESP8266HTTPClient.h>
 #include <ESP8266WebServer.h>
 
@@ -32,8 +34,8 @@ SoftwareSerial serialAT;
 
 #ifdef WIFI
   #include <ESP8266WiFi.h>
-  #define WIFI_NAME ""
-  #define WIFI_PASS ""
+  #define WIFI_NAME "OFICINA2"
+  #define WIFI_PASS "alcool123"
   ESP8266WebServer server(80);
   
 
@@ -264,7 +266,7 @@ void setup() {
   server.on("/changeStatusLinha", HTTP_POST, [](){
   if(server.hasArg("plain")){
     String body = server.arg("plain");
-
+    
     // Verifica se o corpo é um JSON válido
     DynamicJsonDocument json(1024);
     DeserializationError error = deserializeJson(json, body);
@@ -272,22 +274,22 @@ void setup() {
       server.send(400, "text/plain", "Invalid JSON");
       return;
     }
-
+    Serial.println(body);
     // Verifica se a chave "message" existe e tem o valor "ativo"
-    if(json.containsKey("message") && json["message"] == "ativo"){
+    if(json.containsKey("message") && json["message"] == "Ativo"){
       a='g';
       digitalWrite(g_pin, HIGH);
       digitalWrite(y_pin, LOW);
       digitalWrite(r_pin, LOW);
 
       server.send(200, "text/plain", "Status da linha alterado para 'ativo' ");
-    }else if(json.containsKey("message") && json["message"] == "inativo"){
+    }else if(json.containsKey("message") && json["message"] == "Manutencao"){
       a='y';
       digitalWrite(g_pin, LOW);
       digitalWrite(y_pin, HIGH);
       digitalWrite(r_pin, LOW);
       server.send(200, "text/plain", "Status da linha alterado para 'inativo' ");
-    }else if(json.containsKey("message") && json["message"] == "parado"){
+    }else if(json.containsKey("message") && json["message"] == "Atencao"){
       a='r';
       digitalWrite(g_pin, LOW);
       digitalWrite(y_pin, LOW);
@@ -393,17 +395,17 @@ void loop() {
       Serial.print("[HTTP] begin...\n");
       // configure traged server and url
       //http.begin(client, "https://projeto-toyota.vercel.app/dashboardmaquinas");  // HTTP
-      http.begin(client, "http://10.10.4.14:3002/changeStatusMaquina");
+      http.begin(client, "http://192.168.1.104:3002/changeStatusMaquina");
       http.addHeader("Content-Type", "application/json");
       Serial.print(a);
       Serial.print("[HTTP] POST...\n");
       // start connection and send HTTP header and body
       if(a == 'g')
-          httpCode = http.POST("{\"codigo\": \"1\", \"status\": \"1\"}");
+          httpCode = http.POST("{\"codigo\": \"1965156\", \"status\": \"Ativo\"}");
       else if(a == 'y')
-          httpCode = http.POST("{\"codigo\": \"1\",\"status\": \"2\"}");
+          httpCode = http.POST("{\"codigo\": \"1965156\",\"status\": \"Atencao\"}");
       else if(a == 'r')
-          httpCode = http.POST("{\"codigo\": \"1\",\"status\": \"3\"}");
+          httpCode = http.POST("{\"codigo\": \"1965156\",\"status\": \"Manutencao\"}");
        
       //retornar o que enviou///////////
       //enviar apenas json
@@ -434,4 +436,3 @@ void loop() {
   server.handleClient();
   ///////////////////////////////////////////////////////
 }
-  
