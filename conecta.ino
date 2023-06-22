@@ -283,13 +283,13 @@ void setup() {
       digitalWrite(r_pin, LOW);
 
       server.send(200, "text/plain", "Status da linha alterado para 'ativo' ");
-    }else if(json.containsKey("message") && json["message"] == "Manutencao"){
+    }else if(json.containsKey("message") && json["message"] == "Atencao"){
       a='y';
       digitalWrite(g_pin, LOW);
       digitalWrite(y_pin, HIGH);
       digitalWrite(r_pin, LOW);
       server.send(200, "text/plain", "Status da linha alterado para 'inativo' ");
-    }else if(json.containsKey("message") && json["message"] == "Atencao"){
+    }else if(json.containsKey("message") && json["message"] == "Manutencao"){
       a='r';
       digitalWrite(g_pin, LOW);
       digitalWrite(y_pin, LOW);
@@ -343,6 +343,7 @@ void handleCommand() {
 
 int httpCode = 0;
 char estadoBotao = 'g';
+
 void loop() {  
   if(digitalRead(botao) == HIGH && estadoBotao == 'g'){
     if(a == 'g'){
@@ -400,13 +401,16 @@ void loop() {
       Serial.print(a);
       Serial.print("[HTTP] POST...\n");
       // start connection and send HTTP header and body
-      if(a == 'g')
-          httpCode = http.POST("{\"codigo\": \"1965156\", \"status\": \"Ativo\"}");
-      else if(a == 'y')
-          httpCode = http.POST("{\"codigo\": \"1965156\",\"status\": \"Atencao\"}");
-      else if(a == 'r')
-          httpCode = http.POST("{\"codigo\": \"1965156\",\"status\": \"Manutencao\"}");
-       
+      if(digitalRead(botao) == HIGH && estadoBotao == 'y'){
+        if(a == 'g')
+            httpCode = http.POST("{\"codigo\": \"1965156\", \"status\": \"Ativo\"}");
+        else if(a == 'y')
+            httpCode = http.POST("{\"codigo\": \"1965156\",\"status\": \"Atencao\"}");
+        else if(a == 'r')
+            httpCode = http.POST("{\"codigo\": \"1965156\",\"status\": \"Manutencao\"}");
+
+        estadoBotao = 'g';
+      }
       //retornar o que enviou///////////
       //enviar apenas json
       // httpCode will be negative on error
